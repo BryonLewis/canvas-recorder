@@ -1,8 +1,15 @@
 {
-  "hash": "1c51dfa6",
+  "hash": "04fb6ba1",
   "configHash": "5bb32105",
-  "lockfileHash": "e11e7d5f",
-  "browserHash": "1a918c1a",
-  "optimized": {},
+  "lockfileHash": "3e9b9128",
+  "browserHash": "01738e6c",
+  "optimized": {
+    "maplibre-gl": {
+      "src": "../../node_modules/maplibre-gl/dist/maplibre-gl.js",
+      "file": "maplibre-gl.js",
+      "fileHash": "3153e5f4",
+      "needsInterop": true
+    }
+  },
   "chunks": {}
 }

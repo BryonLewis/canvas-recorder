@@ -92,7 +92,11 @@ async function loadFFmpeg(): Promise<void> {
     });
   });
 
-  // Load FFmpeg
+  // Load FFmpeg from CDN
+  // Note: This uses an external CDN. For production use, consider:
+  // 1. Hosting the FFmpeg WASM files locally in the public/ directory
+  // 2. Making the baseURL configurable via environment variables
+  // 3. Implementing fallback URLs for reliability
   const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
   await ffmpeg.load({
     coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),

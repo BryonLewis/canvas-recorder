@@ -11,6 +11,7 @@ let map: maplibregl.Map;
 let recorder: CanvasRecorder;
 let converter: VideoConverter;
 let isRecording = false;
+let fallbackCanvas: HTMLCanvasElement | null = null;
 
 function initMap(): void {
   // Try to load MapLibre with demo tiles, but handle errors gracefully
@@ -77,6 +78,8 @@ function initFallbackCanvas(): void {
   
   let hue = 0;
   function animate() {
+    if (!ctx) return;
+    
     ctx.fillStyle = `hsl(${hue}, 50%, 20%)`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -100,8 +103,8 @@ function initFallbackCanvas(): void {
   animate();
   updateStatus('Fallback canvas ready. Ready to record.');
   
-  // Override recorder initialization to use fallback canvas
-  (window as any).fallbackCanvas = canvas;
+  // Store reference to fallback canvas
+  fallbackCanvas = canvas;
 }
 
 function startMapAnimation(): void {
@@ -128,7 +131,6 @@ function startMapAnimation(): void {
 }
 
 function initRecorder(): void {
-  const fallbackCanvas = (window as any).fallbackCanvas;
   const mapCanvas = fallbackCanvas || (map ? map.getCanvas() : null);
   
   if (!mapCanvas) {

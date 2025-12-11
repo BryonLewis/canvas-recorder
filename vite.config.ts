@@ -15,6 +15,9 @@ export default defineConfig({
   },
   server: {
     headers: {
+      // Required for SharedArrayBuffer support in FFmpeg WASM
+      // These headers enable cross-origin isolation which is necessary for
+      // SharedArrayBuffer to work in modern browsers for security reasons
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
     }

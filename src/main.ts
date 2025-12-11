@@ -13,20 +13,95 @@ let converter: VideoConverter;
 let isRecording = false;
 
 function initMap(): void {
-  map = new maplibregl.Map({
-    container: 'map',
-    style: 'https://demotiles.maplibre.org/style.json',
-    center: [-74.5, 40],
-    zoom: 9
-  });
+  // Try to load MapLibre with demo tiles, but handle errors gracefully
+  try {
+    map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        version: 8,
+        sources: {
+          'osm': {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [{
+          id: 'osm',
+          type: 'raster',
+          source: 'osm',
+          minzoom: 0,
+          maxzoom: 19
+        }],
+        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+      },
+      center: [-74.5, 40],
+      zoom: 9
+    });
 
-  map.on('load', () => {
-    console.log('Map loaded successfully');
-    updateStatus('Map loaded. Ready to record.');
+    map.on('load', () => {
+      console.log('Map loaded successfully');
+      updateStatus('Map loaded. Ready to record.');
 
-    // Add some animation to the map
-    startMapAnimation();
-  });
+      // Add some animation to the map
+      startMapAnimation();
+    });
+
+    map.on('error', (e) => {
+      console.error('Map error:', e);
+      updateStatus('Map loaded with limited features. Ready to record.');
+    });
+  } catch (error) {
+    console.error('Failed to initialize map:', error);
+    updateStatus('Map initialization failed. Using fallback canvas.');
+    initFallbackCanvas();
+  }
+}
+
+function initFallbackCanvas(): void {
+  // Create a simple animated canvas as fallback
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) return;
+  
+  mapContainer.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  canvas.width = mapContainer.clientWidth;
+  canvas.height = mapContainer.clientHeight;
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  mapContainer.appendChild(canvas);
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  
+  let hue = 0;
+  function animate() {
+    ctx.fillStyle = `hsl(${hue}, 50%, 20%)`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw some animated shapes
+    const time = Date.now() / 1000;
+    for (let i = 0; i < 5; i++) {
+      const x = canvas.width / 2 + Math.cos(time + i) * 200;
+      const y = canvas.height / 2 + Math.sin(time + i) * 200;
+      const radius = 50 + Math.sin(time * 2 + i) * 20;
+      
+      ctx.fillStyle = `hsl(${(hue + i * 60) % 360}, 70%, 50%)`;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    hue = (hue + 0.5) % 360;
+    requestAnimationFrame(animate);
+  }
+  
+  animate();
+  updateStatus('Fallback canvas ready. Ready to record.');
+  
+  // Override recorder initialization to use fallback canvas
+  (window as any).fallbackCanvas = canvas;
 }
 
 function startMapAnimation(): void {
@@ -53,7 +128,13 @@ function startMapAnimation(): void {
 }
 
 function initRecorder(): void {
-  const mapCanvas = map.getCanvas();
+  const fallbackCanvas = (window as any).fallbackCanvas;
+  const mapCanvas = fallbackCanvas || (map ? map.getCanvas() : null);
+  
+  if (!mapCanvas) {
+    throw new Error('No canvas available for recording');
+  }
+  
   const watermarkCheckbox = document.getElementById('watermarkEnabled') as HTMLInputElement;
   const watermarkText = document.getElementById('watermarkText') as HTMLInputElement;
 

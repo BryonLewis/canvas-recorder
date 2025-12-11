@@ -52,8 +52,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       self.postMessage({ type: 'progress', progress: 75, message: 'Reading output...' });
 
       // Read the output file
-      const data = await ffmpeg!.readFile('output.mp4');
-      const mp4Blob = new Blob([data], { type: 'video/mp4' });
+      const data = await ffmpeg!.readFile('output.mp4') as Uint8Array;
+      const mp4Blob = new Blob([new Uint8Array(data)], { type: 'video/mp4' });
 
       self.postMessage({ type: 'progress', progress: 100, message: 'Conversion complete!' });
 

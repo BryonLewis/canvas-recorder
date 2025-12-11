@@ -1,0 +1,26 @@
+{
+  "name": "canvas-recorder",
+  "version": "1.0.0",
+  "description": "A client side recording tool that will record a canvas and output an mp4.",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": ["canvas", "recorder", "video", "webgl", "maplibre", "ffmpeg"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "maplibre-gl": "^5.14.0"
+  }
+}

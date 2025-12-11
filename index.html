@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canvas Recorder Demo - MapLibre GL</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    header {
+      background: #2a2a2a;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: #999;
+      margin-top: 0.25rem;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    #map {
+      flex: 1;
+      background: #000;
+    }
+
+    .sidebar {
+      width: 320px;
+      background: #2a2a2a;
+      padding: 1.5rem;
+      overflow-y: auto;
+      border-left: 1px solid #3a3a3a;
+    }
+
+    .control-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .control-group h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #aaa;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.875rem;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
+
+    input[type="text"]:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    button:not(.disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    #startBtn {
+      background: #10b981;
+      color: white;
+    }
+
+    #startBtn:not(.disabled):hover {
+      background: #059669;
+    }
+
+    #stopBtn {
+      background: #ef4444;
+      color: white;
+    }
+
+    #stopBtn:not(.disabled):hover {
+      background: #dc2626;
+    }
+
+    button:disabled,
+    button.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #convertBtn {
+      width: 100%;
+      background: #4a9eff;
+      color: white;
+      display: none;
+    }
+
+    #convertBtn:hover {
+      background: #3b82f6;
+    }
+
+    .timer {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 600;
+      color: #10b981;
+      padding: 1rem;
+      background: #1a1a1a;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status {
+      background: #1a1a1a;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: #aaa;
+      margin-bottom: 1rem;
+      min-height: 2.5rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .progress-container {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .progress-bar-bg {
+      background: #3a3a3a;
+      border-radius: 4px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-bar {
+      background: linear-gradient(90deg, #4a9eff, #10b981);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .progress-text {
+      font-size: 0.75rem;
+      color: #aaa;
+      text-align: center;
+    }
+
+    .download-section {
+      margin-top: 1rem;
+    }
+
+    .download-link {
+      display: inline-block;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #10b981;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+      transition: background 0.2s;
+    }
+
+    .download-link:hover {
+      background: #059669;
+    }
+
+    .info-box {
+      background: #1a1a1a;
+      border-left: 3px solid #4a9eff;
+      padding: 1rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: #aaa;
+    }
+
+    .info-box strong {
+      color: #fff;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎥 Canvas Recorder Demo</h1>
+    <p class="subtitle">Record MapLibre GL canvas with WebGL support and optional watermark</p>
+  </header>
+
+  <main>
+    <div id="map"></div>
+    
+    <aside class="sidebar">
+      <div class="control-group">
+        <h3>Recording Controls</h3>
+        <div class="timer" id="timer">00:00</div>
+        <div class="button-group">
+          <button id="startBtn">Start</button>
+          <button id="stopBtn" disabled>Stop</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Watermark Options</h3>
+        <div class="checkbox-group">
+          <input type="checkbox" id="watermarkEnabled" checked>
+          <label for="watermarkEnabled">Enable Watermark</label>
+        </div>
+        <input 
+          type="text" 
+          id="watermarkText" 
+          placeholder="Enter watermark text..." 
+          value="Canvas Recording"
+        >
+      </div>
+
+      <div class="status" id="status">Ready to record</div>
+
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="progress-text" id="progressText">Converting...</div>
+      </div>
+
+      <button id="convertBtn">Convert to MP4</button>
+
+      <div class="download-section">
+        <div id="webm-download"></div>
+        <div id="mp4-download"></div>
+      </div>
+
+      <div class="control-group">
+        <h3>About</h3>
+        <div class="info-box">
+          <strong>Features:</strong>
+          • Records MapLibre GL canvas with WebGL<br>
+          • Optional watermark overlay<br>
+          • WebM output with MediaRecorder<br>
+          • MP4 conversion using FFmpeg WASM<br>
+          • Web Worker for efficient processing
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

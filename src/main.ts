@@ -3,7 +3,7 @@
  */
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { CanvasRecorder, RecordingData } from './CanvasRecorder';
+import { CanvasRecorder, RecordingData, RecorderOptions, WatermarkOptions, WatermarkBar } from './CanvasRecorder';
 import { VideoConverter } from './VideoConverter';
 
 // Initialize the map
@@ -110,8 +110,30 @@ function initFallbackCanvas(): void {
   fallbackCanvas = canvas;
 }
 
+// GeoJSON types for the demo
+interface GeoJSONPointProperties {
+  id: string;
+  baseLon: number;
+  baseLat: number;
+  'animation-phase'?: number;
+}
+
+interface GeoJSONFeature {
+  type: 'Feature';
+  properties: GeoJSONPointProperties | { 'animation-phase'?: number };
+  geometry: {
+    type: 'Point' | 'LineString';
+    coordinates: [number, number] | [number, number][];
+  };
+}
+
+interface GeoJSONData {
+  type: 'FeatureCollection';
+  features: GeoJSONFeature[];
+}
+
 // Sample GeoJSON data - animated points and a route
-function getGeoJSONData(): any {
+function getGeoJSONData(): GeoJSONData {
   // Center coordinates: [-74.1847, 43.1339]
   const centerLon = -74.1847;
   const centerLat = 43.1339;
@@ -256,9 +278,9 @@ function startGeoJSONAnimation(): void {
     const originalData = getGeoJSONData();
     
     // Update point positions with animation
-    const animatedFeatures = originalData.features.map((feature: any) => {
+    const animatedFeatures = originalData.features.map((feature: GeoJSONFeature) => {
       if (feature.geometry.type === 'Point' && feature.properties) {
-        const props = feature.properties as any;
+        const props = feature.properties as GeoJSONPointProperties;
         const radius = 0.01 * Math.sin(elapsed * 2 + parseInt(props.id.replace('point', '')));
         const newLon = props.baseLon + radius * Math.cos(elapsed * 1.5);
         const newLat = props.baseLat + radius * Math.sin(elapsed * 1.5);
@@ -338,6 +360,34 @@ function initRecorder(): void {
   
   const watermarkCheckbox = document.getElementById('watermarkEnabled') as HTMLInputElement;
   const watermarkText = document.getElementById('watermarkText') as HTMLInputElement;
+  const watermarkPosition = document.getElementById('watermarkPosition') as HTMLSelectElement;
+  const watermarkX = document.getElementById('watermarkX') as HTMLInputElement;
+  const watermarkY = document.getElementById('watermarkY') as HTMLInputElement;
+  const watermarkFontSize = document.getElementById('watermarkFontSize') as HTMLInputElement;
+  const watermarkColor = document.getElementById('watermarkColor') as HTMLInputElement;
+  const watermarkOpacity = document.getElementById('watermarkOpacity') as HTMLInputElement;
+  const watermarkImageFile = document.getElementById('watermarkImageFile') as HTMLInputElement;
+  const imageWatermarkPosition = document.getElementById('imageWatermarkPosition') as HTMLSelectElement;
+  const imageWatermarkX = document.getElementById('imageWatermarkX') as HTMLInputElement;
+  const imageWatermarkY = document.getElementById('imageWatermarkY') as HTMLInputElement;
+  const imageWatermarkWidth = document.getElementById('imageWatermarkWidth') as HTMLInputElement;
+  const imageWatermarkOpacity = document.getElementById('imageWatermarkOpacity') as HTMLInputElement;
+  const topBarEnabled = document.getElementById('topBarEnabled') as HTMLInputElement;
+  const topBarThickness = document.getElementById('topBarThickness') as HTMLInputElement;
+  const topBarThicknessUnit = document.getElementById('topBarThicknessUnit') as HTMLSelectElement;
+  const topBarColor = document.getElementById('topBarColor') as HTMLInputElement;
+  const topBarText = document.getElementById('topBarText') as HTMLInputElement;
+  const topBarTextAlign = document.getElementById('topBarTextAlign') as HTMLSelectElement;
+  const topBarTextColor = document.getElementById('topBarTextColor') as HTMLInputElement;
+  const topBarTextSize = document.getElementById('topBarTextSize') as HTMLInputElement;
+  const bottomBarEnabled = document.getElementById('bottomBarEnabled') as HTMLInputElement;
+  const bottomBarThickness = document.getElementById('bottomBarThickness') as HTMLInputElement;
+  const bottomBarThicknessUnit = document.getElementById('bottomBarThicknessUnit') as HTMLSelectElement;
+  const bottomBarColor = document.getElementById('bottomBarColor') as HTMLInputElement;
+  const bottomBarText = document.getElementById('bottomBarText') as HTMLInputElement;
+  const bottomBarTextAlign = document.getElementById('bottomBarTextAlign') as HTMLSelectElement;
+  const bottomBarTextColor = document.getElementById('bottomBarTextColor') as HTMLInputElement;
+  const bottomBarTextSize = document.getElementById('bottomBarTextSize') as HTMLInputElement;
   const fpsInput = document.getElementById('fps') as HTMLInputElement;
   const bitrateInput = document.getElementById('bitrate') as HTMLInputElement;
 
@@ -346,19 +396,101 @@ function initRecorder(): void {
   const bitrateMbps = parseFloat(bitrateInput.value) || 5.0; // Increased default to 5 Mbps for better quality
   const videoBitsPerSecond = Math.round(bitrateMbps * 1000000); // Convert Mbps to bps
 
-  const options: any = {
+  const options: RecorderOptions = {
     canvas: mapCanvas,
     fps: fps,
     videoBitsPerSecond: videoBitsPerSecond
   };
 
   if (watermarkCheckbox.checked) {
-    options.watermark = {
-      text: watermarkText.value || 'Canvas Recording',
-      position: 'bottom-right',
-      fontSize: 16,
-      color: 'rgba(255, 255, 255, 0.8)'
-    };
+    const watermark: WatermarkOptions = {};
+
+    // Text watermark
+    if (watermarkText.value) {
+      watermark.text = watermarkText.value;
+      
+      // Position
+      const positionValue = watermarkPosition.value;
+      if (positionValue === 'pixel') {
+        watermark.position = {
+          x: parseInt(watermarkX.value, 10) || 10,
+          y: parseInt(watermarkY.value, 10) || 10
+        };
+      } else {
+        watermark.position = positionValue;
+      }
+      
+      // Text styling
+      watermark.fontSize = parseInt(watermarkFontSize.value, 10) || 16;
+      const color = watermarkColor.value;
+      const opacity = parseFloat(watermarkOpacity.value) || 0.8;
+      // Convert hex to rgba
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      watermark.color = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+
+    // Image watermark
+    if (watermarkImageFile.files && watermarkImageFile.files.length > 0) {
+      const file = watermarkImageFile.files[0];
+      const imageUrl = URL.createObjectURL(file);
+      watermark.image = imageUrl;
+      
+      // Image position
+      const imagePositionValue = imageWatermarkPosition.value;
+      if (imagePositionValue === 'pixel') {
+        watermark.imagePosition = {
+          x: parseInt(imageWatermarkX.value, 10) || 10,
+          y: parseInt(imageWatermarkY.value, 10) || 10
+        };
+      } else {
+        watermark.imagePosition = imagePositionValue;
+      }
+      
+      // Image sizing
+      if (imageWatermarkWidth.value) {
+        watermark.imageWidth = parseInt(imageWatermarkWidth.value, 10);
+      }
+      
+      // Image opacity
+      watermark.imageOpacity = parseFloat(imageWatermarkOpacity.value) || 1;
+    }
+
+    // Watermark bars
+    const bars: WatermarkBar[] = [];
+    
+    if (topBarEnabled.checked) {
+      bars.push({
+        position: 'top',
+        thickness: parseInt(topBarThickness.value, 10) || 50,
+        thicknessUnit: topBarThicknessUnit.value as 'px' | '%',
+        color: topBarColor.value,
+        text: topBarText.value || undefined,
+        textAlign: topBarTextAlign.value as 'left' | 'right' | 'center',
+        textColor: topBarTextColor.value,
+        textSize: parseInt(topBarTextSize.value, 10) || 16
+      });
+    }
+    
+    if (bottomBarEnabled.checked) {
+      bars.push({
+        position: 'bottom',
+        thickness: parseInt(bottomBarThickness.value, 10) || 50,
+        thicknessUnit: bottomBarThicknessUnit.value as 'px' | '%',
+        color: bottomBarColor.value,
+        text: bottomBarText.value || undefined,
+        textAlign: bottomBarTextAlign.value as 'left' | 'right' | 'center',
+        textColor: bottomBarTextColor.value,
+        textSize: parseInt(bottomBarTextSize.value, 10) || 16
+      });
+    }
+    
+    if (bars.length > 0) {
+      watermark.bars = bars;
+    }
+
+    options.watermark = watermark;
   }
 
   recorder = new CanvasRecorder(options);
@@ -535,17 +667,75 @@ function updateUI(recording: boolean): void {
   const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
   const watermarkCheckbox = document.getElementById('watermarkEnabled') as HTMLInputElement;
   const watermarkText = document.getElementById('watermarkText') as HTMLInputElement;
+  const watermarkPosition = document.getElementById('watermarkPosition') as HTMLSelectElement;
+  const watermarkX = document.getElementById('watermarkX') as HTMLInputElement;
+  const watermarkY = document.getElementById('watermarkY') as HTMLInputElement;
+  const watermarkFontSize = document.getElementById('watermarkFontSize') as HTMLInputElement;
+  const watermarkColor = document.getElementById('watermarkColor') as HTMLInputElement;
+  const watermarkOpacity = document.getElementById('watermarkOpacity') as HTMLInputElement;
+  const watermarkImageFile = document.getElementById('watermarkImageFile') as HTMLInputElement;
+  const imageWatermarkPosition = document.getElementById('imageWatermarkPosition') as HTMLSelectElement;
+  const imageWatermarkX = document.getElementById('imageWatermarkX') as HTMLInputElement;
+  const imageWatermarkY = document.getElementById('imageWatermarkY') as HTMLInputElement;
+  const imageWatermarkWidth = document.getElementById('imageWatermarkWidth') as HTMLInputElement;
+  const imageWatermarkOpacity = document.getElementById('imageWatermarkOpacity') as HTMLInputElement;
+  const topBarEnabled = document.getElementById('topBarEnabled') as HTMLInputElement;
+  const topBarThickness = document.getElementById('topBarThickness') as HTMLInputElement;
+  const topBarThicknessUnit = document.getElementById('topBarThicknessUnit') as HTMLSelectElement;
+  const topBarColor = document.getElementById('topBarColor') as HTMLInputElement;
+  const topBarText = document.getElementById('topBarText') as HTMLInputElement;
+  const topBarTextAlign = document.getElementById('topBarTextAlign') as HTMLSelectElement;
+  const topBarTextColor = document.getElementById('topBarTextColor') as HTMLInputElement;
+  const topBarTextSize = document.getElementById('topBarTextSize') as HTMLInputElement;
+  const bottomBarEnabled = document.getElementById('bottomBarEnabled') as HTMLInputElement;
+  const bottomBarThickness = document.getElementById('bottomBarThickness') as HTMLInputElement;
+  const bottomBarThicknessUnit = document.getElementById('bottomBarThicknessUnit') as HTMLSelectElement;
+  const bottomBarColor = document.getElementById('bottomBarColor') as HTMLInputElement;
+  const bottomBarText = document.getElementById('bottomBarText') as HTMLInputElement;
+  const bottomBarTextAlign = document.getElementById('bottomBarTextAlign') as HTMLSelectElement;
+  const bottomBarTextColor = document.getElementById('bottomBarTextColor') as HTMLInputElement;
+  const bottomBarTextSize = document.getElementById('bottomBarTextSize') as HTMLInputElement;
   const fpsInput = document.getElementById('fps') as HTMLInputElement;
   const bitrateInput = document.getElementById('bitrate') as HTMLInputElement;
   const geojsonCheckbox = document.getElementById('geojsonEnabled') as HTMLInputElement;
   
-  startBtn.disabled = recording;
-  stopBtn.disabled = !recording;
-  watermarkCheckbox.disabled = recording;
-  watermarkText.disabled = recording;
-  fpsInput.disabled = recording;
-  bitrateInput.disabled = recording;
-  geojsonCheckbox.disabled = recording;
+  const disabled = recording;
+  
+  startBtn.disabled = disabled;
+  stopBtn.disabled = !disabled;
+  watermarkCheckbox.disabled = disabled;
+  watermarkText.disabled = disabled;
+  watermarkPosition.disabled = disabled;
+  watermarkX.disabled = disabled;
+  watermarkY.disabled = disabled;
+  watermarkFontSize.disabled = disabled;
+  watermarkColor.disabled = disabled;
+  watermarkOpacity.disabled = disabled;
+  watermarkImageFile.disabled = disabled;
+  imageWatermarkPosition.disabled = disabled;
+  imageWatermarkX.disabled = disabled;
+  imageWatermarkY.disabled = disabled;
+  imageWatermarkWidth.disabled = disabled;
+  imageWatermarkOpacity.disabled = disabled;
+  topBarEnabled.disabled = disabled;
+  topBarThickness.disabled = disabled;
+  topBarThicknessUnit.disabled = disabled;
+  topBarColor.disabled = disabled;
+  topBarText.disabled = disabled;
+  topBarTextAlign.disabled = disabled;
+  topBarTextColor.disabled = disabled;
+  topBarTextSize.disabled = disabled;
+  bottomBarEnabled.disabled = disabled;
+  bottomBarThickness.disabled = disabled;
+  bottomBarThicknessUnit.disabled = disabled;
+  bottomBarColor.disabled = disabled;
+  bottomBarText.disabled = disabled;
+  bottomBarTextAlign.disabled = disabled;
+  bottomBarTextColor.disabled = disabled;
+  bottomBarTextSize.disabled = disabled;
+  fpsInput.disabled = disabled;
+  bitrateInput.disabled = disabled;
+  geojsonCheckbox.disabled = disabled;
   
   if (recording) {
     startBtn.classList.add('disabled');

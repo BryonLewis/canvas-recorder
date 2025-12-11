@@ -98,9 +98,53 @@
     }
 
     input[type="text"]:disabled,
-    input[type="number"]:disabled {
+    input[type="number"]:disabled,
+    input[type="file"]:disabled,
+    select:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 0.5rem;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+
+    input[type="file"]:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
+
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 40px;
+      padding: 0;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      cursor: pointer;
     }
 
     .input-group {
@@ -354,12 +398,160 @@
           <input type="checkbox" id="watermarkEnabled" checked>
           <label for="watermarkEnabled">Enable Watermark</label>
         </div>
-        <input 
-          type="text" 
-          id="watermarkText" 
-          placeholder="Enter watermark text..." 
-          value="Canvas Recording"
-        >
+        
+        <!-- Text Watermark -->
+        <div class="input-group">
+          <label for="watermarkText">Text Watermark</label>
+          <input 
+            type="text" 
+            id="watermarkText" 
+            placeholder="Enter watermark text..." 
+            value="Canvas Recording"
+          >
+        </div>
+        <div class="input-group">
+          <label for="watermarkPosition">Text Position</label>
+          <select id="watermarkPosition">
+            <option value="top-left">Top Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="bottom-right" selected>Bottom Right</option>
+            <option value="pixel">Custom Pixel Position</option>
+          </select>
+        </div>
+        <div class="input-group" id="pixelPositionGroup" style="display: none;">
+          <label>Pixel Position (X, Y)</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="number" id="watermarkX" placeholder="X" value="10" min="0">
+            <input type="number" id="watermarkY" placeholder="Y" value="10" min="0">
+          </div>
+        </div>
+        <div class="input-group">
+          <label for="watermarkFontSize">Text Font Size</label>
+          <input type="number" id="watermarkFontSize" value="16" min="8" max="72">
+        </div>
+        <div class="input-group">
+          <label for="watermarkColor">Text Color</label>
+          <input type="color" id="watermarkColor" value="#ffffff">
+        </div>
+        <div class="input-group">
+          <label for="watermarkOpacity">Text Opacity (0-1)</label>
+          <input type="number" id="watermarkOpacity" value="0.8" min="0" max="1" step="0.1">
+        </div>
+
+        <!-- Image Watermark -->
+        <div class="input-group">
+          <label for="watermarkImageFile">Image Watermark</label>
+          <input type="file" id="watermarkImageFile" accept="image/*">
+        </div>
+        <div class="input-group">
+          <label for="imageWatermarkPosition">Image Position</label>
+          <select id="imageWatermarkPosition">
+            <option value="top-left">Top Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="bottom-right" selected>Bottom Right</option>
+            <option value="pixel">Custom Pixel Position</option>
+          </select>
+        </div>
+        <div class="input-group" id="imagePixelPositionGroup" style="display: none;">
+          <label>Image Pixel Position (X, Y)</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="number" id="imageWatermarkX" placeholder="X" value="10" min="0">
+            <input type="number" id="imageWatermarkY" placeholder="Y" value="10" min="0">
+          </div>
+        </div>
+        <div class="input-group">
+          <label for="imageWatermarkWidth">Image Width (px, optional)</label>
+          <input type="number" id="imageWatermarkWidth" placeholder="Auto" min="0">
+        </div>
+        <div class="input-group">
+          <label for="imageWatermarkOpacity">Image Opacity (0-1)</label>
+          <input type="number" id="imageWatermarkOpacity" value="1" min="0" max="1" step="0.1">
+        </div>
+
+        <!-- Watermark Bars -->
+        <div class="checkbox-group">
+          <input type="checkbox" id="topBarEnabled">
+          <label for="topBarEnabled">Enable Top Bar</label>
+        </div>
+        <div id="topBarOptions" style="display: none; margin-left: 1.5rem; margin-bottom: 0.75rem;">
+          <div class="input-group">
+            <label for="topBarThickness">Thickness</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="number" id="topBarThickness" value="50" min="1">
+              <select id="topBarThicknessUnit">
+                <option value="px" selected>px</option>
+                <option value="%">%</option>
+              </select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="topBarColor">Bar Color</label>
+            <input type="color" id="topBarColor" value="#000000">
+          </div>
+          <div class="input-group">
+            <label for="topBarText">Bar Text (optional)</label>
+            <input type="text" id="topBarText" placeholder="Enter text...">
+          </div>
+          <div class="input-group">
+            <label for="topBarTextAlign">Text Alignment</label>
+            <select id="topBarTextAlign">
+              <option value="left">Left</option>
+              <option value="center" selected>Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="topBarTextColor">Text Color</label>
+            <input type="color" id="topBarTextColor" value="#ffffff">
+          </div>
+          <div class="input-group">
+            <label for="topBarTextSize">Text Size</label>
+            <input type="number" id="topBarTextSize" value="16" min="8" max="72">
+          </div>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="bottomBarEnabled">
+          <label for="bottomBarEnabled">Enable Bottom Bar</label>
+        </div>
+        <div id="bottomBarOptions" style="display: none; margin-left: 1.5rem; margin-bottom: 0.75rem;">
+          <div class="input-group">
+            <label for="bottomBarThickness">Thickness</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="number" id="bottomBarThickness" value="50" min="1">
+              <select id="bottomBarThicknessUnit">
+                <option value="px" selected>px</option>
+                <option value="%">%</option>
+              </select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="bottomBarColor">Bar Color</label>
+            <input type="color" id="bottomBarColor" value="#000000">
+          </div>
+          <div class="input-group">
+            <label for="bottomBarText">Bar Text (optional)</label>
+            <input type="text" id="bottomBarText" placeholder="Enter text...">
+          </div>
+          <div class="input-group">
+            <label for="bottomBarTextAlign">Text Alignment</label>
+            <select id="bottomBarTextAlign">
+              <option value="left">Left</option>
+              <option value="center" selected>Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="bottomBarTextColor">Text Color</label>
+            <input type="color" id="bottomBarTextColor" value="#ffffff">
+          </div>
+          <div class="input-group">
+            <label for="bottomBarTextSize">Text Size</label>
+            <input type="number" id="bottomBarTextSize" value="16" min="8" max="72">
+          </div>
+        </div>
       </div>
 
       <div class="status" id="status">Ready to record</div>
@@ -396,5 +588,45 @@
   </main>
 
   <script type="module" src="/src/main.ts"></script>
+  <script>
+    // UI interaction handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      // Handle watermark position type change
+      const watermarkPosition = document.getElementById('watermarkPosition');
+      const pixelPositionGroup = document.getElementById('pixelPositionGroup');
+      if (watermarkPosition && pixelPositionGroup) {
+        watermarkPosition.addEventListener('change', (e) => {
+          pixelPositionGroup.style.display = (e.target.value === 'pixel') ? 'block' : 'none';
+        });
+      }
+
+      // Handle image watermark position type change
+      const imageWatermarkPosition = document.getElementById('imageWatermarkPosition');
+      const imagePixelPositionGroup = document.getElementById('imagePixelPositionGroup');
+      if (imageWatermarkPosition && imagePixelPositionGroup) {
+        imageWatermarkPosition.addEventListener('change', (e) => {
+          imagePixelPositionGroup.style.display = (e.target.value === 'pixel') ? 'block' : 'none';
+        });
+      }
+
+      // Handle top bar checkbox
+      const topBarEnabled = document.getElementById('topBarEnabled');
+      const topBarOptions = document.getElementById('topBarOptions');
+      if (topBarEnabled && topBarOptions) {
+        topBarEnabled.addEventListener('change', (e) => {
+          topBarOptions.style.display = (e.target.checked) ? 'block' : 'none';
+        });
+      }
+
+      // Handle bottom bar checkbox
+      const bottomBarEnabled = document.getElementById('bottomBarEnabled');
+      const bottomBarOptions = document.getElementById('bottomBarOptions');
+      if (bottomBarEnabled && bottomBarOptions) {
+        bottomBarEnabled.addEventListener('change', (e) => {
+          bottomBarOptions.style.display = (e.target.checked) ? 'block' : 'none';
+        });
+      }
+    });
+  </script>
 </body>
 </html>

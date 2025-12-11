@@ -1,14 +1,50 @@
 /**
  * Canvas Recorder class for recording canvas elements with optional watermark support
  */
+
+export type WatermarkPosition = 
+  | 'top-left' 
+  | 'top-right' 
+  | 'bottom-left' 
+  | 'bottom-right'
+  | { x: number; y: number }; // Pixel positioning
+
+export type ThicknessUnit = 'px' | '%';
+
+export interface WatermarkBar {
+  position: 'top' | 'bottom';
+  thickness: number; // Thickness value
+  thicknessUnit: ThicknessUnit; // 'px' or '%'
+  color: string; // Bar background color
+  text?: string; // Optional text inside the bar
+  textColor?: string; // Text color
+  textAlign?: 'left' | 'right' | 'center'; // Text alignment
+  textSize?: number; // Text font size
+  textPadding?: number; // Padding around text
+}
+
+export interface WatermarkOptions {
+  // Text watermark
+  text?: string;
+  position?: WatermarkPosition;
+  fontSize?: number;
+  color?: string;
+  
+  // Image watermark
+  image?: string | HTMLImageElement | HTMLCanvasElement; // Image URL, Image element, or Canvas element
+  imagePosition?: WatermarkPosition;
+  imageWidth?: number; // Optional: scale image width (maintains aspect ratio if height not specified)
+  imageHeight?: number; // Optional: scale image height
+  imageOpacity?: number; // 0-1, default 1
+  
+  // Watermark bars
+  bars?: WatermarkBar[];
+}
+
 export interface RecorderOptions {
-  canvas: HTMLCanvasElement;
-  watermark?: {
-    text: string;
-    position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-    fontSize?: number;
-    color?: string;
-  };
+  canvas?: HTMLCanvasElement; // Optional: can use external canvas instead
+  externalCanvas?: HTMLCanvasElement; // Alternative: external canvas as input source
+  watermark?: WatermarkOptions;
   fps?: number;
   videoBitsPerSecond?: number;
 }
@@ -20,7 +56,8 @@ export interface RecordingData {
 }
 
 export class CanvasRecorder {
-  private canvas: HTMLCanvasElement;
+  private canvas: HTMLCanvasElement | null = null;
+  private externalCanvas: HTMLCanvasElement | null = null;
   private watermarkCanvas: HTMLCanvasElement | null = null;
   private watermarkCtx: CanvasRenderingContext2D | null = null;
   private mediaRecorder: MediaRecorder | null = null;
@@ -28,6 +65,8 @@ export class CanvasRecorder {
   private startTime: number = 0;
   private options: RecorderOptions;
   private animationFrameId: number | null = null;
+  private watermarkImage: HTMLImageElement | null = null;
+  private watermarkImageLoaded: boolean = false;
 
   constructor(options: RecorderOptions) {
     this.options = {
@@ -35,76 +74,317 @@ export class CanvasRecorder {
       videoBitsPerSecond: 5000000, // Increased default bitrate for better quality (5 Mbps)
       ...options
     };
-    this.canvas = options.canvas;
+    
+    // Support both canvas and externalCanvas
+    if (options.externalCanvas) {
+      this.externalCanvas = options.externalCanvas;
+    } else if (options.canvas) {
+      this.canvas = options.canvas;
+    } else {
+      throw new Error('Either canvas or externalCanvas must be provided');
+    }
 
     if (options.watermark) {
       this.setupWatermark();
     }
   }
 
-  private setupWatermark(): void {
+  private getSourceCanvas(): HTMLCanvasElement {
+    return this.externalCanvas || this.canvas!;
+  }
+
+  private async setupWatermark(): Promise<void> {
     if (!this.options.watermark) return;
+
+    const sourceCanvas = this.getSourceCanvas();
 
     // Create a hidden canvas for watermark overlay
     // This canvas will copy the main canvas content and draw the watermark on top
     // The recording will capture from this hidden canvas instead of the original
     this.watermarkCanvas = document.createElement('canvas');
     // Ensure watermark canvas matches the source canvas resolution exactly
-    this.watermarkCanvas.width = this.canvas.width;
-    this.watermarkCanvas.height = this.canvas.height;
+    this.watermarkCanvas.width = sourceCanvas.width;
+    this.watermarkCanvas.height = sourceCanvas.height;
     this.watermarkCtx = this.watermarkCanvas.getContext('2d', {
       alpha: false, // Disable alpha for better performance and quality
       desynchronized: false // Ensure synchronized rendering
     });
+
+    // Load watermark image if provided
+    if (this.options.watermark.image) {
+      await this.loadWatermarkImage(this.options.watermark.image);
+    }
+  }
+
+  private async loadWatermarkImage(imageSource: string | HTMLImageElement | HTMLCanvasElement): Promise<void> {
+    if (imageSource instanceof HTMLImageElement) {
+      if (imageSource.complete && imageSource.naturalWidth > 0) {
+        this.watermarkImage = imageSource;
+        this.watermarkImageLoaded = true;
+      } else {
+        return new Promise((resolve) => {
+          imageSource.onload = () => {
+            this.watermarkImage = imageSource;
+            this.watermarkImageLoaded = true;
+            resolve();
+          };
+          imageSource.onerror = () => {
+            console.warn('Failed to load watermark image');
+            resolve();
+          };
+        });
+      }
+    } else if (imageSource instanceof HTMLCanvasElement) {
+      // Convert canvas to image
+      const img = new Image();
+      img.src = imageSource.toDataURL();
+      img.onload = () => {
+        this.watermarkImage = img;
+        this.watermarkImageLoaded = true;
+      };
+    } else if (typeof imageSource === 'string') {
+      // URL string
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // Handle CORS if needed
+      return new Promise((resolve) => {
+        img.onload = () => {
+          this.watermarkImage = img;
+          this.watermarkImageLoaded = true;
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn('Failed to load watermark image from URL:', imageSource);
+          resolve();
+        };
+        img.src = imageSource;
+      });
+    }
   }
 
   private drawWatermark(): void {
     if (!this.watermarkCanvas || !this.watermarkCtx || !this.options.watermark) return;
 
-    const { text, position = 'bottom-right', fontSize = 16, color = 'rgba(255, 255, 255, 0.7)' } = this.options.watermark;
+    const sourceCanvas = this.getSourceCanvas();
+    const watermark = this.options.watermark;
 
     // Every frame: copy the source canvas content to the hidden watermark canvas
-    this.watermarkCtx.drawImage(this.canvas, 0, 0);
+    this.watermarkCtx.drawImage(sourceCanvas, 0, 0);
 
-    // Then draw the watermark text on top of the copied content
+    // Draw watermark bars first (so text/image watermarks can appear on top)
+    if (watermark.bars && watermark.bars.length > 0) {
+      this.drawWatermarkBars(watermark.bars);
+    }
+
+    // Draw text watermark
+    if (watermark.text) {
+      this.drawTextWatermark(watermark);
+    }
+
+    // Draw image watermark
+    if (watermark.image && this.watermarkImageLoaded && this.watermarkImage) {
+      this.drawImageWatermark(watermark);
+    }
+  }
+
+  private drawWatermarkBars(bars: WatermarkBar[]): void {
+    if (!this.watermarkCanvas || !this.watermarkCtx) return;
+
+    for (const bar of bars) {
+      const {
+        position,
+        thickness,
+        thicknessUnit,
+        color,
+        text,
+        textColor = '#ffffff',
+        textAlign = 'center',
+        textSize = 16,
+        textPadding = 10
+      } = bar;
+
+      // Calculate bar thickness
+      let barThickness: number;
+      if (thicknessUnit === '%') {
+        if (position === 'top' || position === 'bottom') {
+          barThickness = (this.watermarkCanvas.height * thickness) / 100;
+        } else {
+          barThickness = (this.watermarkCanvas.width * thickness) / 100;
+        }
+      } else {
+        barThickness = thickness;
+      }
+
+      // Draw the bar
+      this.watermarkCtx.fillStyle = color;
+      if (position === 'top') {
+        this.watermarkCtx.fillRect(0, 0, this.watermarkCanvas.width, barThickness);
+      } else if (position === 'bottom') {
+        this.watermarkCtx.fillRect(0, this.watermarkCanvas.height - barThickness, this.watermarkCanvas.width, barThickness);
+      }
+
+      // Draw text inside the bar if provided
+      if (text) {
+        this.watermarkCtx.fillStyle = textColor;
+        this.watermarkCtx.font = `${textSize}px Arial`;
+        this.watermarkCtx.textBaseline = 'middle';
+
+        let textX: number;
+        const textY = position === 'top' 
+          ? barThickness / 2 
+          : this.watermarkCanvas.height - barThickness / 2;
+
+        const metrics = this.watermarkCtx.measureText(text);
+
+        switch (textAlign) {
+          case 'left':
+            textX = textPadding;
+            break;
+          case 'right':
+            textX = this.watermarkCanvas.width - metrics.width - textPadding;
+            break;
+          case 'center':
+          default:
+            textX = (this.watermarkCanvas.width - metrics.width) / 2;
+            break;
+        }
+
+        this.watermarkCtx.fillText(text, textX, textY);
+      }
+    }
+  }
+
+  private drawTextWatermark(watermark: WatermarkOptions): void {
+    if (!this.watermarkCanvas || !this.watermarkCtx || !watermark.text) return;
+
+    const {
+      text,
+      position = 'bottom-right',
+      fontSize = 16,
+      color = 'rgba(255, 255, 255, 0.7)'
+    } = watermark;
+
     this.watermarkCtx.font = `${fontSize}px Arial`;
     this.watermarkCtx.fillStyle = color;
     
     const metrics = this.watermarkCtx.measureText(text);
     const padding = 10;
-    let x = padding;
-    let y = padding + fontSize;
+    let x: number;
+    let y: number;
 
-    switch (position) {
-      case 'top-left':
-        x = padding;
-        y = padding + fontSize;
-        break;
-      case 'top-right':
-        x = this.watermarkCanvas.width - metrics.width - padding;
-        y = padding + fontSize;
-        break;
-      case 'bottom-left':
-        x = padding;
-        y = this.watermarkCanvas.height - padding;
-        break;
-      case 'bottom-right':
-        x = this.watermarkCanvas.width - metrics.width - padding;
-        y = this.watermarkCanvas.height - padding;
-        break;
+    if (typeof position === 'object' && 'x' in position && 'y' in position) {
+      // Pixel positioning
+      x = position.x;
+      y = position.y;
+    } else {
+      // Corner positioning
+      switch (position) {
+        case 'top-left':
+          x = padding;
+          y = padding + fontSize;
+          break;
+        case 'top-right':
+          x = this.watermarkCanvas.width - metrics.width - padding;
+          y = padding + fontSize;
+          break;
+        case 'bottom-left':
+          x = padding;
+          y = this.watermarkCanvas.height - padding;
+          break;
+        case 'bottom-right':
+        default:
+          x = this.watermarkCanvas.width - metrics.width - padding;
+          y = this.watermarkCanvas.height - padding;
+          break;
+      }
     }
 
     this.watermarkCtx.fillText(text, x, y);
+  }
+
+  private drawImageWatermark(watermark: WatermarkOptions): void {
+    if (!this.watermarkCanvas || !this.watermarkCtx || !this.watermarkImage || !watermark.image) return;
+
+    const {
+      imagePosition = 'bottom-right',
+      imageWidth,
+      imageHeight,
+      imageOpacity = 1
+    } = watermark;
+
+    // Calculate image dimensions
+    let drawWidth = this.watermarkImage.width;
+    let drawHeight = this.watermarkImage.height;
+
+    if (imageWidth && imageHeight) {
+      drawWidth = imageWidth;
+      drawHeight = imageHeight;
+    } else if (imageWidth) {
+      const aspectRatio = this.watermarkImage.height / this.watermarkImage.width;
+      drawWidth = imageWidth;
+      drawHeight = imageWidth * aspectRatio;
+    } else if (imageHeight) {
+      const aspectRatio = this.watermarkImage.width / this.watermarkImage.height;
+      drawHeight = imageHeight;
+      drawWidth = imageHeight * aspectRatio;
+    }
+
+    // Calculate position
+    let x: number;
+    let y: number;
+    const padding = 10;
+
+    if (typeof imagePosition === 'object' && 'x' in imagePosition && 'y' in imagePosition) {
+      // Pixel positioning
+      x = imagePosition.x;
+      y = imagePosition.y;
+    } else {
+      // Corner positioning
+      switch (imagePosition) {
+        case 'top-left':
+          x = padding;
+          y = padding;
+          break;
+        case 'top-right':
+          x = this.watermarkCanvas.width - drawWidth - padding;
+          y = padding;
+          break;
+        case 'bottom-left':
+          x = padding;
+          y = this.watermarkCanvas.height - drawHeight - padding;
+          break;
+        case 'bottom-right':
+        default:
+          x = this.watermarkCanvas.width - drawWidth - padding;
+          y = this.watermarkCanvas.height - drawHeight - padding;
+          break;
+      }
+    }
+
+    // Draw image with opacity
+    if (imageOpacity < 1) {
+      this.watermarkCtx.save();
+      this.watermarkCtx.globalAlpha = imageOpacity;
+    }
+    this.watermarkCtx.drawImage(this.watermarkImage, x, y, drawWidth, drawHeight);
+    if (imageOpacity < 1) {
+      this.watermarkCtx.restore();
+    }
   }
 
   async start(): Promise<void> {
     this.recordedChunks = [];
     this.startTime = Date.now();
 
+    // Ensure watermark is set up (including image loading)
+    if (this.options.watermark && !this.watermarkCanvas) {
+      await this.setupWatermark();
+    }
+
     // Get the canvas to record (with or without watermark)
     // When watermark is enabled, we record from the hidden watermark canvas
     // Otherwise, we record directly from the original canvas
-    const canvasToRecord = this.watermarkCanvas || this.canvas;
+    const sourceCanvas = this.getSourceCanvas();
+    const canvasToRecord = this.watermarkCanvas || sourceCanvas;
 
     // If we have a watermark, draw it immediately before capturing the stream
     // This ensures the watermark canvas has content when the stream starts
@@ -220,5 +500,11 @@ export class CanvasRecorder {
       this.watermarkCanvas.width = width;
       this.watermarkCanvas.height = height;
     }
+    // Also update source canvas if it's the main canvas
+    if (this.canvas) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+    // Note: externalCanvas size should be managed externally
   }
 }

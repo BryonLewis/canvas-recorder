@@ -2,7 +2,7 @@
  * Video Converter class that uses Web Worker for FFmpeg conversion
  */
 export interface ConversionProgress {
-  progress: number;
+  time: string | number;
   message: string;
 }
 
@@ -54,7 +54,7 @@ export class VideoConverter {
       const worker = this.initWorker();
 
       const handleMessage = (event: MessageEvent) => {
-        const { type, mp4Blob, progress, message, error } = event.data;
+        const { type, mp4Blob, time, message, error } = event.data;
 
         if (type === 'complete') {
           worker.removeEventListener('message', handleMessage);
@@ -63,7 +63,7 @@ export class VideoConverter {
           worker.removeEventListener('message', handleMessage);
           reject(new Error(error));
         } else if (type === 'progress' && onProgress) {
-          onProgress({ progress, message });
+          onProgress({ time, message });
         }
       };
 

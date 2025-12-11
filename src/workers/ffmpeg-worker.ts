@@ -36,9 +36,10 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       // Write the WebM file to FFmpeg's virtual file system
       await ffmpeg!.writeFile('input.webm', await fetchFile(webmBlob));
 
-      self.postMessage({ type: 'progress', progress: 25, message: 'Converting to MP4...' });
+      self.postMessage({ type: 'progress', progress: 5, message: 'Converting to MP4...' });
 
       // Convert WebM to MP4
+      // The progress event will fire during this operation and update progress automatically
       await ffmpeg!.exec([
         '-i', 'input.webm',
         '-c:v', 'libx264',
@@ -49,7 +50,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         'output.mp4'
       ]);
 
-      self.postMessage({ type: 'progress', progress: 75, message: 'Reading output...' });
+      self.postMessage({ type: 'progress', progress: 90, message: 'Reading output...' });
 
       // Read the output file
       const data = await ffmpeg!.readFile('output.mp4') as Uint8Array;
@@ -84,11 +85,13 @@ async function loadFFmpeg(): Promise<void> {
     self.postMessage({ type: 'log', message });
   });
 
-  ffmpeg.on('progress', ({ progress, time }) => {
+  ffmpeg.on('progress', ({  time }) => {
+    // Convert microseconds to seconds for display
+    const timeInSeconds = (time / 1000000).toFixed(2);
     self.postMessage({
       type: 'progress',
-      progress: Math.round(progress * 100),
-      message: `Processing... ${time}μs`
+      time: timeInSeconds,
+      message: `Processing... (${timeInSeconds}s)`
     });
   });
 

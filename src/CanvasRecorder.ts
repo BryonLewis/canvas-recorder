@@ -32,7 +32,7 @@ export class CanvasRecorder {
   constructor(options: RecorderOptions) {
     this.options = {
       fps: 30,
-      videoBitsPerSecond: 2500000,
+      videoBitsPerSecond: 5000000, // Increased default bitrate for better quality (5 Mbps)
       ...options
     };
     this.canvas = options.canvas;
@@ -45,11 +45,17 @@ export class CanvasRecorder {
   private setupWatermark(): void {
     if (!this.options.watermark) return;
 
-    // Create a new canvas for watermark overlay
+    // Create a hidden canvas for watermark overlay
+    // This canvas will copy the main canvas content and draw the watermark on top
+    // The recording will capture from this hidden canvas instead of the original
     this.watermarkCanvas = document.createElement('canvas');
+    // Ensure watermark canvas matches the source canvas resolution exactly
     this.watermarkCanvas.width = this.canvas.width;
     this.watermarkCanvas.height = this.canvas.height;
-    this.watermarkCtx = this.watermarkCanvas.getContext('2d');
+    this.watermarkCtx = this.watermarkCanvas.getContext('2d', {
+      alpha: false, // Disable alpha for better performance and quality
+      desynchronized: false // Ensure synchronized rendering
+    });
   }
 
   private drawWatermark(): void {
@@ -57,10 +63,10 @@ export class CanvasRecorder {
 
     const { text, position = 'bottom-right', fontSize = 16, color = 'rgba(255, 255, 255, 0.7)' } = this.options.watermark;
 
-    // Copy the original canvas content
+    // Every frame: copy the source canvas content to the hidden watermark canvas
     this.watermarkCtx.drawImage(this.canvas, 0, 0);
 
-    // Draw watermark
+    // Then draw the watermark text on top of the copied content
     this.watermarkCtx.font = `${fontSize}px Arial`;
     this.watermarkCtx.fillStyle = color;
     
@@ -96,17 +102,33 @@ export class CanvasRecorder {
     this.startTime = Date.now();
 
     // Get the canvas to record (with or without watermark)
+    // When watermark is enabled, we record from the hidden watermark canvas
+    // Otherwise, we record directly from the original canvas
     const canvasToRecord = this.watermarkCanvas || this.canvas;
 
-    // Capture the canvas stream
+    // If we have a watermark, draw it immediately before capturing the stream
+    // This ensures the watermark canvas has content when the stream starts
+    if (this.watermarkCanvas) {
+      this.drawWatermark();
+    }
+
+    // Capture the canvas stream from the selected canvas (watermark canvas or original)
     const stream = canvasToRecord.captureStream(this.options.fps);
 
-    // Create MediaRecorder
+    // Create MediaRecorder with quality settings
     const mimeType = this.getSupportedMimeType();
-    this.mediaRecorder = new MediaRecorder(stream, {
+    const recorderOptions: MediaRecorderOptions = {
       mimeType,
       videoBitsPerSecond: this.options.videoBitsPerSecond
-    });
+    };
+
+    // Add codec-specific quality settings if VP9 is supported
+    if (mimeType.includes('vp9')) {
+      // VP9 supports quality settings - use high quality
+      recorderOptions.videoBitsPerSecond = this.options.videoBitsPerSecond;
+    }
+
+    this.mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
     this.mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -116,20 +138,32 @@ export class CanvasRecorder {
 
     this.mediaRecorder.start(100); // Collect data every 100ms
 
-    // If we have a watermark, continuously update it
+    // If we have a watermark, start the animation loop to continuously update the hidden canvas
+    // This uses requestAnimationFrame to draw the source canvas into the watermark canvas every frame
+    // while recording, then draws the watermark on top
     if (this.watermarkCanvas) {
       this.updateWatermarkLoop();
     }
   }
 
   private updateWatermarkLoop(): void {
+    // Only continue if we're still recording
+    if (!this.isRecording()) {
+      this.animationFrameId = null;
+      return;
+    }
+
+    // Every frame: copy the source canvas to the watermark canvas, then draw watermark on top
     this.drawWatermark();
+    
+    // Schedule the next frame update
     this.animationFrameId = requestAnimationFrame(() => this.updateWatermarkLoop());
   }
 
   private getSupportedMimeType(): string {
+    // Prioritize VP9 for better quality, then VP8, then fallback
     const types = [
-      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp9', // Best quality codec
       'video/webm;codecs=vp8',
       'video/webm',
       'video/mp4'

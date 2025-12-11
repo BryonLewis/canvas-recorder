@@ -97,9 +97,40 @@
       border-color: #4a9eff;
     }
 
-    input[type="text"]:disabled {
+    input[type="text"]:disabled,
+    input[type="number"]:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    .input-group {
+      margin-bottom: 0.75rem;
+    }
+
+    .input-group:last-child {
+      margin-bottom: 0;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 0.5rem;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.875rem;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.875rem;
+      color: #aaa;
     }
 
     .button-group {
@@ -151,15 +182,25 @@
       transform: none;
     }
 
-    #convertBtn {
+    #convertBtn,
+    #convertAndDownloadBtn {
       width: 100%;
       background: #4a9eff;
       color: white;
       display: none;
     }
 
-    #convertBtn:hover {
+    #convertBtn:hover,
+    #convertAndDownloadBtn:hover {
       background: #3b82f6;
+    }
+
+    #convertAndDownloadBtn {
+      background: #10b981;
+    }
+
+    #convertAndDownloadBtn:hover {
+      background: #059669;
     }
 
     .timer {
@@ -275,6 +316,39 @@
       </div>
 
       <div class="control-group">
+        <h3>Recording Settings</h3>
+        <div class="input-group">
+          <label for="fps">FPS</label>
+          <input 
+            type="number" 
+            id="fps" 
+            min="1" 
+            max="60" 
+            value="30"
+          >
+        </div>
+        <div class="input-group">
+          <label for="bitrate">Bitrate (Mbps)</label>
+          <input 
+            type="number" 
+            id="bitrate" 
+            min="0.1" 
+            max="50" 
+            step="0.1"
+            value="5.0"
+          >
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Map Layers</h3>
+        <div class="checkbox-group">
+          <input type="checkbox" id="geojsonEnabled" checked>
+          <label for="geojsonEnabled">Show GeoJSON Data (Animated)</label>
+        </div>
+      </div>
+
+      <div class="control-group">
         <h3>Watermark Options</h3>
         <div class="checkbox-group">
           <input type="checkbox" id="watermarkEnabled" checked>
@@ -297,7 +371,10 @@
         <div class="progress-text" id="progressText">Converting...</div>
       </div>
 
-      <button id="convertBtn">Convert to MP4</button>
+      <div style="margin-bottom: 0.75rem;">
+        <button id="convertBtn" style="display: none; width: 100%; margin-bottom: 0.5rem;">Convert to MP4</button>
+        <button id="convertAndDownloadBtn" style="display: none; width: 100%;">Convert & Download MP4</button>
+      </div>
 
       <div class="download-section">
         <div id="webm-download"></div>

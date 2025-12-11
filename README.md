@@ -36,6 +36,22 @@ npm run build
 npm run preview
 ```
 
+### Important: MapLibre GL Configuration
+
+When using MapLibre GL, you **must** set `canvasContextAttributes` with `preserveDrawingBuffer: true` when creating the map. This is required for the canvas to be recordable:
+
+```typescript
+import maplibregl from 'maplibre-gl';
+
+const map = new maplibregl.Map({
+  canvasContextAttributes: { preserveDrawingBuffer: true }, // Required for recording!
+  container: 'map',
+  // ... other options
+});
+```
+
+Without this setting, the canvas content may not be captured correctly during recording.
+
 ### Using as a Library
 
 ```typescript
@@ -45,6 +61,7 @@ import { CanvasRecorder, VideoConverter } from './src/index';
 const recorder = new CanvasRecorder({
   canvas: myCanvasElement,
   fps: 30,
+  videoBitsPerSecond: 2500000, // Optional: bitrate in bits per second
   watermark: {
     text: 'My Watermark',
     position: 'bottom-right',
